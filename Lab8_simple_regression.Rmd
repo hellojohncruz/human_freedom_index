@@ -44,6 +44,12 @@ The data we're working with is in the openintro package and it's called `hfi`, s
 
 1.  What are the dimensions of the dataset?
 
+There are 1,458 observations with 123 variables.
+
+```{r dim}
+dim(hfi)
+```
+
 2.  What type of plot would you use to display the relationship between the personal
     freedom score, `pf_score`, and one of the other numerical variables? Plot 
     this relationship using the variable `pf_expression_control` as the predictor.
@@ -51,6 +57,14 @@ The data we're working with is in the openintro package and it's called `hfi`, s
     or its score out of 10, with 0 being the most, of political pressures and 
     controls on media content, would you be comfortable using a linear model to
     predict the personal freedom score?
+    
+Utilizing a scatterplot, we can see somewhat of a step pattern increase along the *pf_expression_control* variable. However, overall it does look to have a linear relationship and using a linear model to predict the personal freedom score may be viable.
+    
+```{r plot-relationship}
+hfi |> 
+  ggplot(aes(x = pf_expression_control, y = pf_score)) +
+  geom_point()
+```
 
 If the relationship looks linear, we can quantify the strength of the relationship with the correlation coefficient.
 
@@ -72,6 +86,8 @@ Think back to the way that we described the distribution of a single variable. R
 3.  Looking at your plot from the previous exercise, describe the relationship 
     between these two variables. Make sure to discuss the form, direction, and 
     strength of the relationship as well as any unusual observations.
+    
+We can see from the scatterplot a moderate, positive increase where as pf_expression_control increases, the pf_score increases. However, the trend is not entirely linear as the tail ends when pf_expression_control is ~ <2.5 and greater than 7.5, outliers begin to form a small concave down parabola.  
 
 Just as you've used the mean and standard deviation to summarize a single variable, you can summarize the relationship between these two variables by finding the line that best follows their association. Use the following interactive function to select the line that you think does the best job of going through the cloud of points.
 
@@ -98,6 +114,8 @@ Note that the output from the `plot_ss` function provides you with the slope and
 4.  Using `plot_ss`, choose a line that does a good job of minimizing the sum of
     squares. Run the function several times. What was the smallest sum of 
     squares that you got? How does it compare to your neighbors?
+    
+The smallest sum of squares I got was 971.172. Another classmate got 1033. 
 
 ## The linear model
 
@@ -128,6 +146,18 @@ One last piece of information we will discuss from the summary output is the Mul
     the equation of the regression line. What does the slope tell us in the 
     context of the relationship between human freedom and the amount of political
     pressure on media content?
+    
+\[
+  \hat{y} = 5.153687 + 0.349862 \times pf\_expression\_control
+\]
+
+As pf_expression_control increases by one unit, human_freedom increases by 0.349862. 
+    
+```{r lm-model-hf-score}
+lm_mod <- lm(hf_score ~ pf_expression_control, data = hfi)
+
+summary(lm_mod)
+```
 
 ## Prediction and prediction errors
 
@@ -147,6 +177,30 @@ This line can be used to predict $y$ at any value of $x$. When predictions are m
     would they predict a country's personal freedom school for one with a 6.7 rating
     for `pf_expression_control`? Is this an overestimate or an underestimate, and
     by how much? In other words, what is the residual for this prediction?
+    
+We can fined where 6.7 lands on the x-axis (pf_expression_control) and move up to where the regression line meets; roughly a 7.8 pf_score. However, lets be more accurate using the predict function and our regression equation which tells us it is 7.49776. 
+
+```{r predict}
+test_data <- data.frame(pf_expression_control = 6.7)
+
+predict(lm_mod, test_data)
+```
+
+Given that the dataset does not contain values for pf_expression_control = 6.7, as it has 0.25 increments, I will collect the next closest data points which is 6.75. Let's now determine the residuals for each one and calculate the average.  
+
+```{r residuals}
+original_pts <-
+  hfi |> 
+  select(pf_expression_control, pf_score) |> 
+  filter(pf_expression_control == 6.75)
+
+resid_diff <-
+  original_pts$pf_score - predict(lm_mod, test_data)
+
+mean(resid_diff)
+```
+
+The residuals tell us that we will either overestimate or underestimate given that the linear regression model is trying to reduce the sum of sqaured errors. However, looking at the average of the residuals, we will be generally underestimating what 6.7 should be. 
 
 ## Model diagnostics
 
@@ -154,7 +208,7 @@ To assess whether the linear model is reliable, we need to check for (1) lineari
 
 **Linearity**: You already checked if the relationship between `pf_score` and `pf_expression_control' is linear using a scatterplot. We should also verify this condition with a plot of the residuals vs. fitted (predicted) values.
 
-```{r residuals}
+```{r residuals-2}
 ggplot(data = m1, aes(x = .fitted, y = .resid)) +
   geom_point() +
   geom_hline(yintercept = 0, linetype = "dashed") +
@@ -162,10 +216,12 @@ ggplot(data = m1, aes(x = .fitted, y = .resid)) +
   ylab("Residuals")
 ```
 
-Notice here that `m1` can also serve as a data set because stored within it are the fitted values ($\hat{y}$) and the residuals. Also note that we're getting fancy with the code here. After creating the scatterplot on the first layer (first line of code), we overlay a horizontal dashed line at $y = 0$ (to help us check whether residuals are distributed around 0), and we also reanme the axis labels to be more informative.
+Notice here that `m1` can also serve as a data set because stored within it are the fitted values ($\hat{y}$) and the residuals. Also note that we're getting fancy with the code here. After creating the scatterplot on the first layer (first line of code), we overlay a horizontal dashed line at $y = 0$ (to help us check whether residuals are distributed around 0), and we also rename the axis labels to be more informative.
 
 7.  Is there any apparent pattern in the residuals plot? What does this indicate
     about the linearity of the relationship between the two variables?  
+    
+Overall there does not seem to be any unusual pattern as the values are scattered around zero. This means that in general, there is a linear relationship between both variables. 
 
 </br>
 
@@ -189,12 +245,16 @@ Note that the syntax for making a normal probability plot is a bit different tha
 8.  Based on the histogram and the normal probability plot, does the nearly 
     normal residuals condition appear to be met?
 
+Yes the normal condition appears to be met with some slight variation in the tails. 
+
 </br>
 
 **Constant variability**:
 
 9.  Based on the residuals vs. fitted plot, does the constant variability condition 
     appear to be met?
+    
+Yes, the constant variability condition is met as there is not a specific pattern being seen.
 
 * * *
 
@@ -204,14 +264,45 @@ Note that the syntax for making a normal probability plot is a bit different tha
 -   Choose another freedom variable and a variable you think would strongly
     correlate with it.. Produce a scatterplot of the two variables and fit a 
     linear model. At a glance, does there seem to be a linear relationship?
+    
+ef_trade_tariffs vs. ef_score
+
+There does seem to be a linear relationship, however quite weak. 
+    
+```{r scatterplot-2}
+hfi |> 
+  ggplot(aes(x = ef_trade_tariffs, y = ef_score)) +
+  geom_point()
+```
 
 -   How does this relationship compare to the relationship between 
     `pf_expression_control` and `pf_score`? Use the $R^2$ values from the two 
     model summaries to compare. Does your independent variable seem to predict
     your dependent one better? Why or why not?
+    
+```{r lm-model-ef-score}
+lm_mod_2 <- lm(ef_score ~ ef_trade_tariffs, data = hfi)
 
+summary(lm_mod_2)
+```
+
+The linear model between ef_trade_tariffs vs. ef_score is significantly weaker with an $R^2$ of 0.2292 compared to `pf_expression_control` and `pf_score` and an $R^2$ of 0.6342
 
 -   What's one freedom relationship you were most surprised about and why? Display
     the model diagnostics for the regression model analyzing this relationship.
     
+```{r scatterplot-3}
+hfi |> 
+  ggplot(aes(x = pf_religion, y = pf_score)) +
+  geom_point()
+```
+    
+```{r lm-model-hf-score-2}
+lm_mod_2 <- lm(pf_score ~ pf_religion, data = hfi)
+
+summary(lm_mod_2)
+```
+
+Looking into the relationship between pf_score vs. pf_religion I would have thought it would have a stronger association then it shows. This may be due to the skew viewpoints living in the United States and how religion is portrayed within media. Overall throughout the globe, religion does not seem to be a major point between personal freedoms of religion to their overall personal freedom score. 
+
 * * *
